@@ -507,7 +507,7 @@ input[type=range].s2 { accent-color: var(--s2); background: linear-gradient(to r
 
       <div class="note">
         💡 <b>計算定義：</b>
-        守りは年利5%の月次複利積立。個別株は各月の投資額を「その月の株価指数」で取得し、5年後期末価格で評価。株価指数は選択したパターンに基づき月次で補間計算。上場廃止パターンでは5年後の株価0として評価。
+        守りは指定年利の月次複利積立。個別株は「5年間の投資元本合計 × 5年後倍率」で評価（上場廃止の場合は評価額0）。株価推移チャートはイメージ図です。
       </div>
     </div>
   </div>
@@ -714,7 +714,6 @@ let barChart;
 
 function calculate() {
   let curDef = 0;
-  let sharesS1 = 0, sharesS2 = 0;
   let baseDef = 0, baseS1 = 0, baseS2 = 0;
 
   const annualRate = (parseFloat(document.getElementById('def-rate').value) || 0) / 100;
@@ -731,24 +730,19 @@ function calculate() {
     baseS1 += s1Year;
     baseS2 += s2Year;
 
+    // 守りは月次複利積立
     for (let m = 1; m <= 12; m++) {
-      const t = y * 12 + m;
       curDef = (curDef + dMonth) * (1 + monthlyRate);
-
-      const p1 = getPriceIndex(state.s1.pattern, state.s1.mult, t);
-      if (p1 > 0) sharesS1 += (s1Year / 12) / p1;
-
-      const p2 = getPriceIndex(state.s2.pattern, state.s2.mult, t);
-      if (p2 > 0) sharesS2 += (s2Year / 12) / p2;
     }
   }
 
-  const finalP1 = getPriceIndex(state.s1.pattern, state.s1.mult, 60);
-  const finalP2 = getPriceIndex(state.s2.pattern, state.s2.mult, 60);
+  // 個別株はシンプルに「元本合計 × 5年後倍率」
+  const m1 = state.s1.pattern === 'delist' ? 0 : state.s1.mult;
+  const m2 = state.s2.pattern === 'delist' ? 0 : state.s2.mult;
 
   const fDef = Math.round(curDef / 10000);
-  const fS1  = Math.round((sharesS1 * finalP1) / 10000);
-  const fS2  = Math.round((sharesS2 * finalP2) / 10000);
+  const fS1  = Math.round(baseS1 / 10000 * m1);
+  const fS2  = Math.round(baseS2 / 10000 * m2);
 
   const bDefM = Math.round(baseDef / 10000);
   const bS1M  = Math.round(baseS1 / 10000);
