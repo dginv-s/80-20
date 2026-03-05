@@ -1,833 +1,905 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>5ヵ年投資シミュレーター</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投資配分シミュレーター — 80/20の法則</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f4f6fa;
-  --surface: #ffffff;
-  --surface2: #f0f2f7;
-  --border: #dde1ec;
-  --text: #1a1d2e;
-  --muted: #7b82a0;
-  --s1: #d97706;
-  --s1-dim: rgba(217,119,6,0.10);
-  --s2: #059669;
-  --s2-dim: rgba(5,150,105,0.10);
-  --def: #4f46e5;
-  --def-dim: rgba(79,70,229,0.10);
-  --danger: #dc2626;
+  --bg:#ffffff;--surface:#f9f7f4;--surface2:#f3f0eb;--surface3:#ece8e1;
+  --border:#ddd8ce;--border2:#c8c0b0;--text:#2a1f0e;--muted:#8a7355;--muted2:#6b5a3e;
+  --def:#a19679;--def-dim:rgba(161,150,121,0.12);
+  --s1:#f5af02;--s1-dim:rgba(245,175,2,0.13);
+  --s2:#86b817;--s2-dim:rgba(134,184,23,0.13);
+  --danger:#d02020;--ok:#4a6800;--radius:12px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'Noto Sans JP', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  padding: 24px 16px;
-}
-.app { max-width: 820px; margin: 0 auto; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
 
-/* Header */
-.header {
-  display: flex; align-items: baseline; gap: 12px;
-  margin-bottom: 16px;
+/* ══ LAYOUT ══ */
+.app{display:grid;grid-template-columns:320px 1fr;grid-template-rows:auto 1fr;height:100vh}
+.topbar{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;
+  padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--border);z-index:10;flex-shrink:0;
 }
-.header h1 {
-  font-size: 1.1rem; font-weight: 900; letter-spacing: 0.05em;
-  color: var(--text);
-}
-.header .sub { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.topbar-title{font-weight:800;font-size:0.88rem;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.topbar-logo{width:22px;height:22px;background:linear-gradient(135deg,var(--def),var(--s1));border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.topbar-badge{font-size:0.6rem;background:var(--def-dim);border:1px solid var(--def);color:var(--def);border-radius:20px;padding:1px 8px}
+.year-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:7px;overflow:hidden;font-weight:700;font-size:0.75rem}
+.year-btn{padding:5px 14px;cursor:pointer;color:var(--muted2);border:none;background:transparent;transition:all 0.2s;font-family:'Noto Sans JP',sans-serif;font-weight:700}
+.year-btn.active{background:#0064d2;color:#fff}
 
-/* Section label */
-.section-label {
-  font-size: 0.85rem; font-weight: 700; letter-spacing: 0.15em;
-  color: var(--muted); text-transform: uppercase;
-  margin-bottom: 12px;
+/* ── PANELS: both independently scrollable ── */
+.left{
+  background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;overflow-x:hidden;
+  padding:14px 12px 40px;display:flex;flex-direction:column;gap:16px;
+  height:100%;
+}
+.right{
+  overflow-y:auto;overflow-x:hidden;
+  padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--bg);
+  height:100%;
+}
+.left::-webkit-scrollbar,.right::-webkit-scrollbar{width:4px}
+.left::-webkit-scrollbar-thumb,.right::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* Plan card */
+.plan-card{background:linear-gradient(135deg,var(--def-dim),rgba(245,175,2,0.06));border:1px solid var(--border2);border-radius:var(--radius);padding:12px 13px}
+.plan-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.plan-label{font-size:0.72rem;font-weight:700;color:var(--text);flex:1;min-width:80px}
+.plan-input-wrap{display:flex;align-items:center;gap:5px}
+.input-large{
+  width:72px;padding:5px 8px;text-align:center;
+  background:var(--surface);border:2px solid var(--def);border-radius:7px;
+  color:var(--def);font-size:1rem;font-weight:700;
+  transition:border-color 0.15s;font-family:'Noto Sans JP',sans-serif
+}
+.input-large:focus{outline:none;border-color:#8a7d65}
+.plan-unit{font-size:0.78rem;font-weight:700;color:var(--muted2)}
+.plan-hint{font-size:0.65rem;color:var(--def);margin-top:6px;font-weight:600;background:var(--def-dim);border-radius:5px;padding:3px 8px;display:inline-block}
+.plan-divider{border:none;border-top:1px solid var(--border);margin:10px 0}
+
+/* Plan card (year toggle inside) */
+.plan-card .year-toggle{background:var(--surface);border:1px solid var(--border)}
+
+/* ══ LEFT COMPONENTS ══ */
+.sec-label{font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.stock-card{border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;background:var(--surface2)}
+.stock-card-header{padding:8px 11px 6px;display:flex;align-items:center;justify-content:space-between}
+.stock-card-title{font-weight:800;font-size:0.8rem}
+.stock-card-title.def{color:var(--def)}.stock-card-title.s1{color:#8a6100}.stock-card-title.s2{color:#4a6800}
+.stock-card-sub{font-size:0.58rem;color:var(--muted)}
+.pattern-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 10px 8px}
+.pat-btn{background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:5px 6px;cursor:pointer;font-size:0.62rem;color:var(--muted2);display:flex;align-items:center;gap:3px;transition:all 0.15s;font-family:'Noto Sans JP',sans-serif}
+.pat-btn:hover{border-color:var(--muted2);color:var(--text)}
+.pat-btn.active.s1{background:var(--s1-dim);border-color:var(--s1);color:#8a6100}
+.pat-btn.active.s2{background:var(--s2-dim);border-color:var(--s2);color:#4a6800}
+.mini-chart-wrap{height:62px;padding:0 10px 3px;position:relative}
+.ctrl-row{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid var(--border)}
+.ctrl-label{font-size:0.62rem;color:var(--muted);white-space:nowrap}
+.ctrl-val{font-size:0.9rem;font-weight:700;min-width:36px;text-align:right}
+.ctrl-val.def{color:var(--def)}.ctrl-val.s1{color:#8a6100}.ctrl-val.s2{color:#4a6800}.ctrl-val.zero{color:var(--danger)}
+
+input[type=range]{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;outline:none;cursor:pointer}
+input[type=range].def{accent-color:var(--def)}
+input[type=range].s1{accent-color:#d49000}
+input[type=range].s2{accent-color:#6a9400}
+
+input[type=number].input-mini{
+  width:48px;padding:3px 4px;text-align:center;
+  background:var(--surface3);border:1px solid var(--border);border-radius:5px;
+  color:var(--text);font-size:0.78rem;transition:border-color 0.15s;font-family:'Noto Sans JP',sans-serif
+}
+input[type=number].input-mini:focus{outline:none;border-color:var(--def)}
+input[type=number].input-mini:disabled{opacity:0.38;cursor:not-allowed;background:var(--surface3)}
+
+/* Tenbagger years */
+.tb-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 11px}
+.tb-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.tb-label{font-size:0.65rem;color:var(--muted2);font-weight:700;flex:1;min-width:100px}
+.tb-btns{display:flex;gap:3px;flex-wrap:wrap}
+.tb-yr-btn{
+  width:26px;height:26px;border:1px solid var(--border);border-radius:5px;
+  background:var(--surface3);color:var(--muted2);font-size:0.7rem;font-weight:700;
+  cursor:pointer;transition:all 0.15s;font-family:'Noto Sans JP',sans-serif
+}
+.tb-yr-btn.active{background:var(--s1);border-color:#d49000;color:#fff}
+.tb-yr-btn:hover:not(.active){border-color:var(--muted);color:var(--text)}
+.tb-desc{font-size:0.6rem;color:var(--muted);line-height:1.4}
+
+/* Schedule table */
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:0.68rem;min-width:210px}
+thead th{background:var(--surface3);color:var(--muted);font-weight:700;font-size:0.58rem;letter-spacing:0.06em;text-transform:uppercase;padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);transition:background 0.1s}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface3)}
+.year-tag{font-weight:600;color:var(--muted2);font-size:0.66rem;white-space:nowrap}
+.total-cell{font-weight:600;color:var(--muted2);font-size:0.66rem}
+
+.rebalance-btn{
+  width:100%;margin-top:7px;padding:8px 10px;
+  background:#0064d2;color:#fff;border:none;border-radius:8px;
+  font-weight:700;font-size:0.72rem;cursor:pointer;
+  transition:background 0.2s,transform 0.1s;font-family:'Noto Sans JP',sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:5px
+}
+.rebalance-btn:hover{background:#0052b0}
+.rebalance-btn:active{transform:scale(0.98)}
+
+/* ══ RIGHT COMPONENTS ══ */
+.cta-card{background:linear-gradient(135deg,rgba(161,150,121,0.07),rgba(245,175,2,0.08));border:1px solid var(--border2);border-radius:var(--radius);padding:11px 13px}
+.cta-steps{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.cta-step{font-size:0.6rem;font-weight:700;color:var(--def);background:var(--def-dim);border:1px solid rgba(161,150,121,0.22);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.cta-step-last{color:#7a5500;background:rgba(245,175,2,0.12);border-color:rgba(245,175,2,0.3)}
+.cta-arrow{font-size:0.6rem;color:var(--muted)}
+.cta-body{font-size:0.68rem;color:var(--muted2);line-height:1.65;margin-bottom:7px}
+.cta-body strong{color:var(--text)}
+.cta-link{display:inline-flex;align-items:center;gap:7px;background:#0064d2;color:#fff;text-decoration:none;border-radius:7px;padding:8px 16px;font-size:0.73rem;font-weight:700;transition:background 0.2s,box-shadow 0.2s;box-shadow:0 2px 8px rgba(0,100,210,0.28)}
+.cta-link:hover{background:#0052b0;box-shadow:0 4px 14px rgba(0,100,210,0.42)}
+
+.rule-viz{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px}
+.rule-num{font-weight:900;font-size:1.7rem;line-height:1;color:var(--def)}
+.rule-slash{font-weight:700;font-size:1.1rem;color:var(--muted)}
+.rule-desc{flex:1;font-size:0.62rem;color:var(--muted2);line-height:1.55}
+.rule-desc strong{color:var(--text)}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-card.def::before{background:var(--def)}.kpi-card.s1c::before{background:var(--s1)}.kpi-card.s2c::before{background:var(--s2)}.kpi-card.total::before{background:linear-gradient(90deg,var(--def),var(--s1),var(--s2))}
+.kpi-label{font-size:0.56rem;color:var(--muted);font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:2px}
+.kpi-val{font-size:0.98rem;font-weight:700;line-height:1.1}
+.kpi-val.def{color:var(--def)}.kpi-val.s1c{color:#8a6100}.kpi-val.s2c{color:#4a6800}.kpi-val.total{color:var(--text)}
+.kpi-gain{font-size:0.56rem;margin-top:2px}
+.kpi-gain.pos{color:var(--ok)}.kpi-gain.neg{color:var(--danger)}
+
+.ratio-bar-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px}
+.ratio-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;flex-wrap:wrap;gap:4px}
+.ratio-title{font-size:0.6rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted)}
+.ratio-badge{font-size:0.68rem;font-weight:600;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:2px 9px}
+.ratio-bar{display:flex;height:32px;border-radius:7px;overflow:hidden;border:1px solid var(--border);margin-bottom:7px}
+.ratio-seg{display:flex;align-items:center;justify-content:center;transition:width 0.5s cubic-bezier(.4,0,.2,1);min-width:0;overflow:hidden}
+.def-seg{background:var(--def)}.atk-seg{background:linear-gradient(90deg,var(--s1),var(--s2))}
+.seg-label{font-size:0.64rem;font-weight:700;color:#fff;text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.3)}
+.ratio-legend{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rl-item{display:flex;align-items:center;gap:4px;font-size:0.6rem;color:var(--muted2)}
+.rl-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.ratio-rule{margin-left:auto;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:4px}
+.ratio-rule.ok{background:rgba(134,184,23,0.15);color:#4a6800;border:1px solid rgba(134,184,23,0.35)}
+.ratio-rule.ng{background:rgba(208,32,32,0.10);color:var(--danger);border:1px solid rgba(208,32,32,0.25)}
+
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.chart-card-title{font-size:0.6rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chart-wrap{position:relative}
+.chart-wrap.medium{height:160px}
+
+.note-footer{font-size:0.6rem;color:var(--muted);line-height:1.75;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px}
+
+.rebalance-warning{
+  display:none;margin-top:8px;padding:10px 12px;
+  background:rgba(208,32,32,0.07);border:1px solid rgba(208,32,32,0.3);
+  border-radius:8px;gap:8px;align-items:flex-start;
+}
+.rw-icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+.rw-body{flex:1;display:flex;flex-direction:column;gap:5px}
+.rw-msg{font-size:0.68rem;color:var(--danger);font-weight:600;line-height:1.5}
+.rw-hint{font-size:0.63rem;color:var(--muted2);line-height:1.5}
+.rw-hint strong{color:var(--text)}
+.rw-fix-btn{
+  margin-top:4px;padding:5px 10px;align-self:flex-start;
+  background:var(--danger);color:#fff;border:none;border-radius:6px;
+  font-size:0.65rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;transition:background 0.2s;
+}
+.rw-fix-btn:hover{background:#a81818}
+.rw-close{
+  flex-shrink:0;background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:0.8rem;padding:0 2px;line-height:1;align-self:flex-start;
 }
 
-/* ━━━ UPPER: Stock Scenario Settings ━━━ */
-.scenario-panels {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
-  margin-bottom: 0;
-}
-.scenario-panel {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.scenario-panel.def-panel { border-top: 3px solid var(--def); }
-.scenario-panel.s1-panel  { border-top: 3px solid var(--s1); }
-.scenario-panel.s2-panel  { border-top: 3px solid var(--s2); }
-.panel-title-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
-.panel-title { font-size: 0.82rem; font-weight: 700; }
-.panel-sub   { font-size: 0.62rem; color: var(--muted); }
-.col-def { color: var(--def); }
-.col-s1  { color: var(--s1); }
-.col-s2  { color: var(--s2); }
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 
-/* Defense card inner */
-.def-rate-wrap {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  background: var(--def-dim); border: 1px solid rgba(79,70,229,0.2);
-  border-radius: 8px; padding: 10px 10px; margin-bottom: 8px;
+/* ══ MOBILE ══ */
+@media(max-width:768px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:auto auto auto;height:auto;overflow:visible}
+  .left,.right{height:auto;overflow-y:visible}
+  .right{border-top:2px solid var(--border)}
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .chart-row{grid-template-columns:1fr}
+  .topbar-badge{display:none}
+  .tb-btns{flex-wrap:wrap}
 }
-.def-rate-icon { font-size: 1.2rem; }
-.def-rate-desc { font-size: 0.7rem; color: var(--muted); }
-.def-rate-unit { font-size: 0.78rem; font-weight: 700; }
-.def-note { font-size: 0.65rem; color: var(--muted); text-align: center; margin-top: 4px; }
-
-/* multiplier row */
-
-.pattern-grid {
-  display: grid; grid-template-columns: 1fr; gap: 5px;
-  margin-bottom: 10px;
-}
-.pattern-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 6px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s;
-  color: var(--text);
-}
-.pattern-btn:hover { border-color: var(--muted); }
-.pattern-btn.active.s1 { background: var(--s1-dim); border-color: var(--s1); }
-.pattern-btn.active.s2 { background: var(--s2-dim); border-color: var(--s2); }
-.pattern-btn .icon { font-size: 0.95rem; margin-right: 4px; }
-.pattern-btn .label { font-size: 0.62rem; color: var(--muted); line-height: 1.3; }
-.pattern-btn.active .label { color: var(--text); }
-.pattern-btn { display: flex; align-items: center; }
-
-.mini-chart-wrap { height: 90px; position: relative; }
-
-.multiplier-row {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 10px; gap: 8px;
-}
-.mult-label { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
-.mult-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1rem; font-weight: 700;
-  min-width: 48px; text-align: right;
-}
-.mult-val.s1 { color: var(--s1); }
-.mult-val.s2 { color: var(--s2); }
-.mult-val.zero { color: var(--danger); }
-input[type=range] {
-  flex: 1; -webkit-appearance: none; height: 4px;
-  border-radius: 2px; outline: none; cursor: pointer;
-}
-input[type=range].s1 { accent-color: var(--s1); background: linear-gradient(to right, var(--s1) 50%, var(--border) 50%); }
-input[type=range].s2 { accent-color: var(--s2); background: linear-gradient(to right, var(--s2) 50%, var(--border) 50%); }
-
-/* ━━━ LOWER: Schedule + Result Chart ━━━ */
-.lower { display: grid; grid-template-columns: 1fr; gap: 20px; }
-
-.table-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.table-card table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-.table-card th {
-  background: var(--surface2); color: var(--muted); font-weight: 700;
-  font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 10px 12px; text-align: center;
-}
-.table-card td { padding: 9px 12px; text-align: center; border-top: 1px solid var(--border); }
-.table-card tr:hover td { background: var(--surface2); }
-.input-mini {
-  width: 54px; padding: 4px 6px; text-align: center;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 6px; color: var(--text);
-  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
-  transition: border-color 0.15s;
-}
-.input-mini:focus { outline: none; border-color: var(--def); }
-.total-cell { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--muted); }
-.col-def { color: var(--def); }
-.col-s1 { color: var(--s1); }
-.col-s2 { color: var(--s2); }
-
-.chart-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.chart-wrap { height: 280px; }
-
-.result-row {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
-  margin-bottom: 16px;
-}
-.result-chip {
-  background: var(--surface2); border-radius: 8px; padding: 10px 12px;
-  border-left: 3px solid;
-}
-.result-chip.def { border-color: var(--def); }
-.result-chip.s1c { border-color: var(--s1); }
-.result-chip.s2c { border-color: var(--s2); }
-.result-chip .rc-label { font-size: 0.6rem; color: var(--muted); margin-bottom: 3px; }
-.result-chip .rc-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.95rem; font-weight: 700;
-}
-.result-chip.def .rc-val { color: var(--def); }
-.result-chip.s1c .rc-val { color: var(--s1); }
-.result-chip.s2c .rc-val { color: var(--s2); }
-.result-chip .rc-gain { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
-
-.total-banner {
-  background: linear-gradient(135deg, #eef0f8, #f4f6fa);
-  border: 1px solid var(--border); border-radius: 10px;
-  padding: 14px 18px;
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 16px;
-}
-.total-banner .tb-label { font-size: 0.75rem; color: var(--muted); }
-.total-banner .tb-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.5rem; font-weight: 900; color: var(--text);
-}
-.total-banner .tb-sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
-
-.note {
-  font-size: 0.68rem; color: var(--muted); line-height: 1.7;
-  border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px;
-}
-/* Rate input row */
-.rate-row {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin-bottom: 10px; padding: 6px 12px;
-  background: var(--def-dim); border: 1px solid rgba(79,70,229,0.2);
-  border-radius: 8px;
-}
-.rate-label { font-size: 0.72rem; font-weight: 700; color: var(--def); white-space: nowrap; }
-.rate-unit  { font-size: 0.72rem; font-weight: 700; color: var(--def); }
-.rate-note  { font-size: 0.65rem; color: var(--muted); }
-
-/* Compact summary */
-.compact-summary {
-  display: inline-flex; align-items: center; gap: 10px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 8px 16px; margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.cs-label { font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
-.cs-val {
-  font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 900;
-  color: var(--text); white-space: nowrap;
-}
-.cs-divider { color: var(--border); font-size: 1rem; }
-.cs-sub { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-.cs-gain {
-  font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700;
-  white-space: nowrap;
-}
-.cs-gain.pos { color: var(--s2); }
-.cs-gain.neg { color: var(--danger); }
-
-/* Ratio Bar */
-.ratio-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 18px; margin-top: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.ratio-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px;
-}
-.ratio-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
-.ratio-badge {
-  font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700;
-  color: var(--text); background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 20px; padding: 3px 12px;
-}
-.ratio-bar-wrap { margin-bottom: 10px; }
-.ratio-bar {
-  display: flex; height: 44px; border-radius: 8px; overflow: hidden;
-  border: 1px solid var(--border);
-}
-.ratio-seg { display: flex; align-items: center; justify-content: center; transition: width 0.5s ease; min-width: 0; overflow: hidden; }
-.def-seg { background: var(--def); }
-.atk-seg { background: linear-gradient(90deg, var(--s1) 0%, var(--s2) 100%); }
-.seg-label {
-  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
-  color: #fff; text-align: center; line-height: 1.3; white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-.ratio-legend {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-}
-.rl-item { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--muted); }
-.rl-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.def-dot { background: var(--def); }
-.s1-dot  { background: var(--s1); }
-.s2-dot  { background: var(--s2); }
-.ratio-rule {
-  margin-left: auto; font-size: 0.68rem; font-weight: 700; font-family: 'JetBrains Mono', monospace;
-  padding: 2px 10px; border-radius: 4px;
-}
-.ratio-rule.ok  { background: rgba(5,150,105,0.12); color: #059669; }
-.ratio-rule.ng  { background: rgba(220,38,38,0.10); color: #dc2626; }
-.ratio-rule.na  { background: var(--surface2); color: var(--muted); }
-/* Note CTA */
-.note-cta {
-  margin-bottom: 28px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 24px;
-}
-.note-cta-inner {
-  background: linear-gradient(135deg, #f8f6ff, #f0f7ff);
-  border: 1px solid #ddd6fe;
-  border-radius: 14px;
-  padding: 22px 24px;
-}
-.note-steps {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  margin-bottom: 16px;
-}
-.note-step {
-  font-size: 0.75rem; font-weight: 700; color: #4f46e5;
-  background: rgba(79,70,229,0.08); border: 1px solid rgba(79,70,229,0.2);
-  border-radius: 20px; padding: 4px 10px; white-space: nowrap;
-}
-.note-step-last { color: #d97706; background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.2); }
-.note-arrow { font-size: 0.75rem; color: var(--muted); }
-.note-body {
-  font-size: 0.8rem; color: #374151; line-height: 1.75; margin-bottom: 8px;
-}
-.note-body strong { color: #1a1d2e; }
-.note-link {
-  display: inline-flex; align-items: center; gap: 10px; margin-top: 12px;
-  background: #0066cc; color: #fff; text-decoration: none;
-  border-radius: 8px; padding: 10px 18px;
-  font-size: 0.8rem; font-weight: 700; transition: opacity 0.15s;
-}
-.note-link:hover { opacity: 0.85; }
-.note-link-url {
-  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
-  color: #fff; font-weight: 400;
+@media(max-width:480px){
+  .topbar{padding:8px 12px}
+  .topbar-title{font-size:0.78rem}
+  .left,.right{padding:10px}
 }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <div class="header">
-    <h1>📈 5ヵ年投資配分シミュレーター</h1>
-    <span class="sub">v2.0 — scenario edition</span>
+<!-- ══ TOPBAR ══ -->
+<div class="topbar">
+  <div class="topbar-title">
+    <div class="topbar-logo">📈</div>
+    投資配分シミュレーター — 80/20の法則
+    <span class="topbar-badge">PARETO EDITION</span>
+  </div>
+</div>
+
+<!-- ══ LEFT ══ -->
+<div class="left">
+
+  <!-- ０ 合計投資金額 & 期間 -->
+  <div>
+    <div class="sec-label">０ 投資プラン設定</div>
+    <div class="plan-card">
+      <div class="plan-row">
+        <span class="plan-label">💰 合計投資金額</span>
+        <div class="plan-input-wrap">
+          <input type="number" id="total-budget" class="input-large" value="300" min="10" step="10" oninput="calculate()">
+          <span class="plan-unit">万円</span>
+        </div>
+      </div>
+      <div class="plan-hint" id="plan-hint">毎年 60万円 × 5年 = 合計 300万円</div>
+      <div class="plan-divider"></div>
+      <div class="plan-row">
+        <span class="plan-label">📅 投資期間</span>
+        <div class="year-toggle">
+          <button class="year-btn active" id="btn5" onclick="setYears(5)">5年</button>
+          <button class="year-btn" id="btn10" onclick="setYears(10)">10年</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="sec-label">① 守り — インデックス積立</div>
+    <div class="stock-card">
+      <div class="stock-card-header">
+        <div><div class="stock-card-title def">守り（INDEX）</div><div class="stock-card-sub">月次複利積立</div></div>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">年利</span>
+        <input type="range" class="def" id="def-rate-slider" min="1" max="20" step="0.5" value="5" oninput="syncDefRate(this.value)">
+        <input type="number" class="input-mini" id="def-rate" value="5" min="0" max="30" step="0.5" oninput="syncDefRate(this.value)">
+        <span class="ctrl-val def" style="font-size:0.7rem">%</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Note CTA -->
-  <div class="note-cta">
-    <div class="note-cta-inner">
-      <div class="note-steps">
-        <span class="note-step">💡 技術が生まれる</span>
-        <span class="note-arrow">→</span>
-        <span class="note-step">🏗 構造が変わる</span>
-        <span class="note-arrow">→</span>
-        <span class="note-step">💰 資本が流れ込む</span>
-        <span class="note-arrow">→</span>
-        <span class="note-step note-step-last">📈 株価が上がる</span>
+  <!-- ② 個別株A -->
+  <div>
+    <div class="sec-label">② 個別株 A — テンバガー候補</div>
+    <div class="stock-card">
+      <div class="stock-card-header">
+        <div><div class="stock-card-title s1">個別株 A</div><div class="stock-card-sub">ハイリターン候補</div></div>
       </div>
-      <p class="note-body">多くの人は最後<strong>「株価」</strong>で気づきます。でも本当に重要なのは、<strong>「その前」</strong>—資本が流れ込む前に気づくことです。</p>
-      <p class="note-body">大きな成長企業には、必ず<strong>「前夜」</strong>があります。まだ市場は気づいていない。でも、構造はすでに動いている。</p>
-      <p class="note-body">私は、この前夜を追ってnoteに記録しています。</p>
-      <a class="note-link" href="https://note.com/dginv" target="_blank" rel="noopener">
-        テンバガーが生まれる"前夜"を観測していきましょう 🔍
-        <span class="note-link-url">note.com/dginv →</span>
-      </a>
+      <div class="pattern-row">
+        <button class="pat-btn active s1" data-stock="s1" data-pattern="tenbagger" onclick="selectPattern('s1','tenbagger',this)">📈 テンバガー</button>
+        <button class="pat-btn" data-stock="s1" data-pattern="delist" onclick="selectPattern('s1','delist',this)">📉 上場廃止</button>
+        <button class="pat-btn" data-stock="s1" data-pattern="rocket" onclick="selectPattern('s1','rocket',this)">🚀 急落→急騰</button>
+        <button class="pat-btn" data-stock="s1" data-pattern="recovery" onclick="selectPattern('s1','recovery',this)">🔄 下落→回復</button>
+      </div>
+      <div class="mini-chart-wrap"><canvas id="miniChart-s1"></canvas></div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">最終倍率</span>
+        <input type="range" class="s1" id="mult-s1" min="0" max="20" step="1" value="10" oninput="updateMult('s1')">
+        <span class="ctrl-val s1" id="multVal-s1">10×</span>
+      </div>
     </div>
   </div>
 
-  <!-- ━━━ ① Schedule Table ━━━ -->
-  <div class="lower">
-    <div>
-      <div class="section-label">① 年次投資スケジュール</div>
-      <div class="table-card">
-        <table>
-          <thead>
-            <tr>
-              <th>年次</th>
-              <th class="col-def">守り<br><small>月額(万)</small></th>
-              <th class="col-s1">株A<br><small>年額(万)</small></th>
-              <th class="col-s2">株B<br><small>年額(万)</small></th>
-              <th>年間合計</th>
-            </tr>
-          </thead>
-          <tbody id="schedule-body"></tbody>
-        </table>
+  <!-- ③ 個別株B -->
+  <div>
+    <div class="sec-label">③ 個別株 B — ハイリスク枠</div>
+    <div class="stock-card">
+      <div class="stock-card-header">
+        <div><div class="stock-card-title s2">個別株 B</div><div class="stock-card-sub">実験的投資枠</div></div>
       </div>
-
-      <!-- Ratio Bar -->
-      <div class="ratio-card">
-        <div class="ratio-header">
-          <span class="ratio-title">5年間 投資比率</span>
-          <span class="ratio-badge" id="ratio-badge">守り —% ／ 攻め —%</span>
-        </div>
-        <div class="ratio-bar-wrap">
-          <div class="ratio-bar">
-            <div class="ratio-seg def-seg" id="seg-def" style="width:50%">
-              <span class="seg-label" id="seg-def-label">守り<br>—%</span>
-            </div>
-            <div class="ratio-seg atk-seg" id="seg-atk" style="width:50%">
-              <span class="seg-label" id="seg-atk-label">攻め<br>—%</span>
-            </div>
-          </div>
-        </div>
-        <div class="ratio-legend">
-          <span class="rl-item"><span class="rl-dot def-dot"></span>守り（インデックス）</span>
-          <span class="rl-item"><span class="rl-dot s1-dot"></span>株A</span>
-          <span class="rl-item"><span class="rl-dot s2-dot"></span>株B</span>
-          <div class="ratio-rule" id="ratio-rule"></div>
-        </div>
+      <div class="pattern-row">
+        <button class="pat-btn" data-stock="s2" data-pattern="tenbagger" onclick="selectPattern('s2','tenbagger',this)">📈 テンバガー</button>
+        <button class="pat-btn active s2" data-stock="s2" data-pattern="delist" onclick="selectPattern('s2','delist',this)">📉 上場廃止</button>
+        <button class="pat-btn" data-stock="s2" data-pattern="rocket" onclick="selectPattern('s2','rocket',this)">🚀 急落→急騰</button>
+        <button class="pat-btn" data-stock="s2" data-pattern="recovery" onclick="selectPattern('s2','recovery',this)">🔄 下落→回復</button>
       </div>
-
-    </div>
-
-    <!-- ━━━ ② Scenario Settings ━━━ -->
-    <div>
-      <div class="section-label">② シナリオ設定</div>
-      <div class="scenario-panels">
-
-        <!-- 守り -->
-        <div class="scenario-panel def-panel">
-          <div class="panel-title-row">
-            <span class="panel-title col-def">守り</span>
-            <span class="panel-sub">インデックス</span>
-          </div>
-          <div class="def-rate-wrap">
-            <span class="def-rate-icon">📦</span>
-            <span class="def-rate-desc">年利</span>
-            <input type="number" id="def-rate" class="input-mini" value="5" min="0" max="30" step="0.5">
-            <span class="def-rate-unit col-def">%／年</span>
-          </div>
-          <div class="def-note">月次複利で積立計算</div>
-        </div>
-
-        <!-- 個別株A -->
-        <div class="scenario-panel s1-panel">
-          <div class="panel-title-row">
-            <span class="panel-title col-s1">個別株 A</span>
-            <span class="panel-sub">テンバガー候補</span>
-          </div>
-          <div class="pattern-grid" id="patterns-s1">
-            <button class="pattern-btn active s1" data-stock="s1" data-pattern="tenbagger" onclick="selectPattern('s1','tenbagger',this)">
-              <span class="icon">📈</span>
-              <span class="label">横ばい→テンバガー</span>
-            </button>
-            <button class="pattern-btn" data-stock="s1" data-pattern="delist" onclick="selectPattern('s1','delist',this)">
-              <span class="icon">📉</span>
-              <span class="label">下落→上場廃止</span>
-            </button>
-
-          </div>
-          <div class="mini-chart-wrap">
-            <canvas id="miniChart-s1"></canvas>
-          </div>
-          <div class="multiplier-row">
-            <span class="mult-label">5年後倍率</span>
-            <input type="range" class="s1" id="mult-s1" min="0" max="20" step="1" value="10" oninput="updateMult('s1')">
-            <span class="mult-val s1" id="multVal-s1">10×</span>
-          </div>
-        </div>
-
-        <!-- 個別株B -->
-        <div class="scenario-panel s2-panel">
-          <div class="panel-title-row">
-            <span class="panel-title col-s2">個別株 B</span>
-            <span class="panel-sub">ハイリスク枠</span>
-          </div>
-          <div class="pattern-grid" id="patterns-s2">
-            <button class="pattern-btn" data-stock="s2" data-pattern="tenbagger" onclick="selectPattern('s2','tenbagger',this)">
-              <span class="icon">📈</span>
-              <span class="label">横ばい→テンバガー</span>
-            </button>
-            <button class="pattern-btn active s2" data-stock="s2" data-pattern="delist" onclick="selectPattern('s2','delist',this)">
-              <span class="icon">📉</span>
-              <span class="label">下落→上場廃止</span>
-            </button>
-
-          </div>
-          <div class="mini-chart-wrap">
-            <canvas id="miniChart-s2"></canvas>
-          </div>
-          <div class="multiplier-row">
-            <span class="mult-label">5年後倍率</span>
-            <input type="range" class="s2" id="mult-s2" min="0" max="20" step="1" value="0" oninput="updateMult('s2')">
-            <span class="mult-val s2 zero" id="multVal-s2">0×</span>
-          </div>
-        </div>
+      <div class="mini-chart-wrap"><canvas id="miniChart-s2"></canvas></div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">最終倍率</span>
+        <input type="range" class="s2" id="mult-s2" min="0" max="20" step="1" value="0" oninput="updateMult('s2')">
+        <span class="ctrl-val s2 zero" id="multVal-s2">0×</span>
       </div>
     </div>
+  </div>
 
-    <!-- ━━━ ③ Result ━━━ -->
-    <div>
-      <div class="section-label">③ 5年後評価額シミュレーション</div>
-
-      <div class="result-row" id="result-chips">
-        <div class="result-chip def">
-          <div class="rc-label">守り（インデックス）</div>
-          <div class="rc-val" id="r-def">—</div>
-          <div class="rc-gain" id="r-def-g"></div>
-        </div>
-        <div class="result-chip s1c">
-          <div class="rc-label">個別株 A</div>
-          <div class="rc-val" id="r-s1">—</div>
-          <div class="rc-gain" id="r-s1-g"></div>
-        </div>
-        <div class="result-chip s2c">
-          <div class="rc-label">個別株 B</div>
-          <div class="rc-val" id="r-s2">—</div>
-          <div class="rc-gain" id="r-s2-g"></div>
-        </div>
+  <!-- ④ テンバガー仕込み年数 -->
+  <div>
+    <div class="sec-label">④ テンバガー仕込み年数</div>
+    <div class="tb-card">
+      <div class="tb-top">
+        <span class="tb-label">🎯 個別株を買い付ける年数</span>
+        <div class="tb-btns" id="tb-btns"></div>
       </div>
-
-      <div class="compact-summary">
-        <span class="cs-label">5年後合計</span>
-        <span class="cs-val" id="total-result">— 万円</span>
-        <span class="cs-divider">|</span>
-        <span class="cs-sub" id="total-invested">元本 — 万円</span>
-        <span class="cs-gain" id="total-gain"></span>
-      </div>
-
-      <div class="chart-card">
-        <div class="chart-wrap">
-          <canvas id="barChart"></canvas>
-        </div>
-      </div>
-
-      <div class="note">
-        💡 <b>計算定義：</b>
-        守りは指定年利の月次複利積立。個別株は「5年間の投資元本合計 × 5年後倍率」で評価（上場廃止の場合は評価額0）。株価推移チャートはイメージ図です。
-      </div>
+      <div class="tb-desc" id="tb-desc">1年目から2年目まで個別株を買い付けます</div>
     </div>
+  </div>
+
+  <!-- ⑤ 年次スケジュール -->
+  <div>
+    <div class="sec-label">⑤ 年次投資スケジュール</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>年次</th>
+            <th style="color:var(--def)">守り<br>月額(万)</th>
+            <th style="color:#8a6100">株A<br>年額(万)</th>
+            <th style="color:#4a6800">株B<br>年額(万)</th>
+            <th>合計</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+    </div>
+    <button class="rebalance-btn" onclick="autoRebalance()">⚖️ 80:20 に自動リバランス</button>
   </div>
 
 </div>
 
+<!-- ══ RIGHT ══ -->
+<div class="right">
+
+  <!-- CTA -->
+  <div class="cta-card">
+    <div class="cta-steps">
+      <span class="cta-step">💡 技術が生まれる</span>
+      <span class="cta-arrow">→</span>
+      <span class="cta-step">🏗 構造が変わる</span>
+      <span class="cta-arrow">→</span>
+      <span class="cta-step">💰 資本が流れ込む</span>
+      <span class="cta-arrow">→</span>
+      <span class="cta-step cta-step-last">📈 株価が上がる</span>
+    </div>
+    <p class="cta-body">多くの人は最後<strong>「株価」</strong>で気づきます。本当に重要なのは<strong>「前夜」</strong>——資本が流れ込む前に気づくこと。</p>
+    <a class="cta-link" href="https://note.com/dginv" target="_blank" rel="noopener">
+      テンバガーの"前夜"を観測する →
+      <span style="font-size:0.66rem;opacity:0.85">note.com/dginv</span>
+    </a>
+  </div>
+
+  <!-- 80/20 -->
+  <div class="rule-viz">
+    <div class="rule-num">80</div>
+    <div class="rule-slash">/</div>
+    <div class="rule-num">20</div>
+    <div class="rule-desc">
+      <strong>パレートの法則 × 投資配分</strong><br>
+      資産の80%を「守り」（インデックス）、20%を「攻め」（個別株）に配分。リスクを抑えながらテンバガー候補を保有する。
+    </div>
+    <div id="pareto-badge" class="ratio-rule ok">計算中…</div>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi-card total">
+      <div class="kpi-label">最終合計</div>
+      <div class="kpi-val total" id="kpi-total">—</div>
+      <div class="kpi-gain" id="kpi-total-g"></div>
+    </div>
+    <div class="kpi-card def">
+      <div class="kpi-label">守り（INDEX）</div>
+      <div class="kpi-val def" id="kpi-def">—</div>
+      <div class="kpi-gain" id="kpi-def-g"></div>
+    </div>
+    <div class="kpi-card s1c">
+      <div class="kpi-label">個別株 A</div>
+      <div class="kpi-val s1c" id="kpi-s1">—</div>
+      <div class="kpi-gain" id="kpi-s1-g"></div>
+    </div>
+    <div class="kpi-card s2c">
+      <div class="kpi-label">個別株 B</div>
+      <div class="kpi-val s2c" id="kpi-s2">—</div>
+      <div class="kpi-gain" id="kpi-s2-g"></div>
+    </div>
+  </div>
+
+  <!-- Ratio Bar -->
+  <div class="ratio-bar-card">
+    <div class="ratio-header">
+      <span class="ratio-title">投資配分比率（元本ベース）</span>
+      <span class="ratio-badge" id="ratio-badge">— / —</span>
+    </div>
+    <div class="ratio-bar">
+      <div class="ratio-seg def-seg" id="seg-def" style="width:50%"><span class="seg-label" id="seg-def-label">守り —%</span></div>
+      <div class="ratio-seg atk-seg" id="seg-atk" style="width:50%"><span class="seg-label" id="seg-atk-label">攻め —%</span></div>
+    </div>
+    <div class="ratio-legend">
+      <span class="rl-item"><span class="rl-dot" style="background:var(--def)"></span>守り</span>
+      <span class="rl-item"><span class="rl-dot" style="background:var(--s1)"></span>株A</span>
+      <span class="rl-item"><span class="rl-dot" style="background:var(--s2)"></span>株B</span>
+      <div class="ratio-rule" id="ratio-rule"></div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-card-title">元本 vs 評価額（積み上げ）</div>
+      <div class="chart-wrap medium"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">守りの資産推移（年次）</div>
+      <div class="chart-wrap medium"><canvas id="lineChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-card-title">年次投資スケジュール（積み上げ）</div>
+      <div class="chart-wrap medium"><canvas id="scheduleChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">株価イメージ推移 — 個別株A / B</div>
+      <div class="chart-wrap medium"><canvas id="priceChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Note -->
+  <div class="note-footer">
+    💡 <b>計算定義：</b>守りは指定年利の月次複利積立。個別株は「元本合計 × 最終倍率」で評価（上場廃止パターン時は倍率0固定）。仕込み年数外の年は個別株欄が無効（0固定）。株価推移はイメージ図。本ツールは教育・参考目的です。
+  </div>
+
+</div>
+</div>
+
 <script>
-Chart.register(ChartDataLabels);
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// State
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ══ STATE ══
+let years = 5;
+let tbYears = 2;
 const state = {
-  s1: { pattern: 'tenbagger', mult: 10 },
-  s2: { pattern: 'delist',    mult: 0  },
+  s1: { pattern:'tenbagger', mult:10 },
+  s2: { pattern:'delist',    mult:0  },
 };
+const GC = '#ddc99a', TC = '#8a7355';
 
-const defaultPlan = [
-  { defMonthly: 2.5, s1Y: 15, s2Y: 15 },
-  { defMonthly: 2.5, s1Y: 15, s2Y: 15 },
-  { defMonthly: 5.0, s1Y: 0,  s2Y: 0  },
-  { defMonthly: 5.0, s1Y: 0,  s2Y: 0  },
-  { defMonthly: 5.0, s1Y: 0,  s2Y: 0  },
+// ══ DEFAULT PLANS ══
+const defaultPlan5 = [
+  {defMonthly:2.5,s1Y:15,s2Y:15},
+  {defMonthly:2.5,s1Y:15,s2Y:15},
+  {defMonthly:5.0,s1Y:0, s2Y:0 },
+  {defMonthly:5.0,s1Y:0, s2Y:0 },
+  {defMonthly:5.0,s1Y:0, s2Y:0 },
 ];
+const defaultPlan10 = [
+  {defMonthly:2.5,s1Y:15,s2Y:15},
+  {defMonthly:2.5,s1Y:15,s2Y:15},
+  {defMonthly:5.0,s1Y:10,s2Y:10},
+  {defMonthly:5.0,s1Y:10,s2Y:10},
+  {defMonthly:5.0,s1Y:0, s2Y:0 },
+  {defMonthly:7.5,s1Y:0, s2Y:0 },
+  {defMonthly:7.5,s1Y:0, s2Y:0 },
+  {defMonthly:7.5,s1Y:0, s2Y:0 },
+  {defMonthly:7.5,s1Y:0, s2Y:0 },
+  {defMonthly:7.5,s1Y:0, s2Y:0 },
+];
+let userPlan = null;
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Pattern Price Index (month 0..60, normalized: start=1.0)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function getPriceIndex(pattern, mult, t) {
-  // t: 0=start, 60=end
-  const T = 60;
+// ══ YEAR TOGGLE ══
+function setYears(n) {
+  years = n;
+  document.getElementById('btn5').classList.toggle('active', n===5);
+  document.getElementById('btn10').classList.toggle('active', n===10);
+  if (tbYears > years) tbYears = years;
+  userPlan = null;
+  buildTbBtns();
+  initTable();
+  buildMiniChart('s1');
+  buildMiniChart('s2');
+  calculate();
+}
+
+// ══ TENBAGGER YEAR BUTTONS ══
+function buildTbBtns() {
+  const wrap = document.getElementById('tb-btns');
+  wrap.innerHTML = '';
+  for (let i=1; i<=years; i++) {
+    const b = document.createElement('button');
+    b.className = 'tb-yr-btn' + (i===tbYears?' active':'');
+    b.textContent = i;
+    b.onclick = () => setTbYears(i);
+    wrap.appendChild(b);
+  }
+  updateTbDesc();
+}
+function setTbYears(n) {
+  tbYears = n;
+  document.querySelectorAll('.tb-yr-btn').forEach((b,i) => b.classList.toggle('active', i+1===n));
+  updateTbDesc();
+  initTable();
+  calculate();
+}
+function updateTbDesc() {
+  const el = document.getElementById('tb-desc');
+  el.textContent = tbYears===1 ? '1年目のみ個別株を買い付けます' : `1年目から${tbYears}年目まで個別株を買い付けます`;
+}
+
+// ══ PRICE INDEX ══
+function getPriceIndex(pattern, mult, t, T) {
   switch(pattern) {
     case 'tenbagger': {
-      // 横ばい(~36ヶ月)→急上昇
-      if (t <= 36) return 1.0 + (t/36) * 0.05; // ほぼ横ばい(微増)
-      const u = (t - 36) / (T - 36);
-      return 1.05 * Math.pow(Math.max(mult, 0.001), u);
+      const p = Math.round(T*0.6);
+      if (t<=p) return 1.0+(t/p)*0.05;
+      return 1.05*Math.pow(Math.max(mult,0.001),(t-p)/(T-p));
     }
-    case 'delist': {
-      // 下落し続け、60ヶ月で0へ
-      const endVal = 0.001;
-      return Math.pow(endVal, t / T);
-    }
+    case 'delist': return Math.pow(0.001,t/T);
     case 'rocket': {
-      // 1〜24ヶ月かわ(微下落)、その後急騰
-      if (t <= 24) return 1.0 - (t/24) * 0.15;
-      const u = (t - 24) / (T - 24);
-      return 0.85 * Math.pow(Math.max(mult, 0.001), u);
+      const p = Math.round(T*0.4);
+      if (t<=p) return 1.0-(t/p)*0.15;
+      return 0.85*Math.pow(Math.max(mult,0.001),(t-p)/(T-p));
     }
     case 'recovery': {
-      // 0〜18ヶ月で急落(-60%)、その後回復→上昇
-      if (t <= 18) return 1.0 - (t/18) * 0.6;
-      const u = (t - 18) / (T - 18);
-      return 0.4 * Math.pow(Math.max(mult, 0.001), u);
+      const p = Math.round(T*0.3);
+      if (t<=p) return 1.0-(t/p)*0.6;
+      return 0.4*Math.pow(Math.max(mult,0.001),(t-p)/(T-p));
     }
     default: return 1.0;
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Mini Charts
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ══ MINI CHARTS ══
 const miniCharts = {};
-
 function buildMiniChart(stock) {
-  const { pattern, mult } = state[stock];
-  const labels = [];
-  const data = [];
-  for (let t = 0; t <= 60; t += 3) {
-    labels.push(t === 0 ? '開始' : t === 60 ? '5年後' : '');
-    data.push(getPriceIndex(pattern, mult, t));
+  const {pattern,mult} = state[stock];
+  const TM = years*12, step = TM/20;
+  const labels=[], data=[];
+  for (let t=0; t<=TM; t+=step) {
+    labels.push(t===0?'開始':t>=TM?`${years}年後`:'');
+    data.push(getPriceIndex(pattern,mult,t,TM));
   }
-
-  const color = stock === 's1' ? '#f59e0b' : '#10b981';
+  const color = stock==='s1'?'#d49000':'#6a9400';
   const ctx = document.getElementById(`miniChart-${stock}`).getContext('2d');
-
   if (miniCharts[stock]) miniCharts[stock].destroy();
-
   miniCharts[stock] = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        borderColor: color,
-        borderWidth: 2,
-        pointRadius: 0,
-        fill: true,
-        backgroundColor: (ctx2) => {
-          const g = ctx2.chart.ctx.createLinearGradient(0,0,0,90);
-          g.addColorStop(0, color + '44');
-          g.addColorStop(1, color + '00');
-          return g;
-        },
-        tension: 0.4,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { display: false }, datalabels: { display: false } },
-      scales: {
-        x: { display: false },
-        y: {
-          display: true,
-          ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 4,
-            callback: v => v.toFixed(1) + '×' },
-          grid: { color: '#e8eaf2', lineWidth: 1 },
-          border: { display: false }
-        }
-      }
-    }
+    type:'line',
+    data:{labels,datasets:[{data,borderColor:color,borderWidth:2,pointRadius:0,fill:true,
+      backgroundColor:(c2)=>{const g=c2.chart.ctx.createLinearGradient(0,0,0,62);g.addColorStop(0,color+'55');g.addColorStop(1,color+'00');return g;},tension:0.4}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:true,ticks:{color:TC,font:{size:8},maxTicksLimit:4,callback:v=>v.toFixed(1)+'×'},grid:{color:GC},border:{display:false}}}}
   });
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Pattern Selection
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function selectPattern(stock, pattern, btn) {
+// ══ PATTERN ══
+function selectPattern(stock,pattern,btn) {
   state[stock].pattern = pattern;
-  // update buttons
-  document.querySelectorAll(`[data-stock="${stock}"]`).forEach(b => {
-    b.classList.remove('active', 's1', 's2');
-  });
-  btn.classList.add('active', stock);
-  // auto-set mult for delist
-  if (pattern === 'delist') {
-    document.getElementById(`mult-${stock}`).value = 0;
-    state[stock].mult = 0;
-    updateMult(stock);
-  } else if (state[stock].mult === 0) {
-    document.getElementById(`mult-${stock}`).value = 10;
-    state[stock].mult = 10;
-    updateMult(stock);
-  }
-  buildMiniChart(stock);
+  document.querySelectorAll(`[data-stock="${stock}"]`).forEach(b=>b.classList.remove('active','s1','s2'));
+  btn.classList.add('active',stock);
+  if (pattern==='delist') { document.getElementById(`mult-${stock}`).value=0; state[stock].mult=0; }
+  else if (state[stock].mult===0) { document.getElementById(`mult-${stock}`).value=10; state[stock].mult=10; }
+  updateMult(stock); buildMiniChart(stock); calculate();
+}
+function syncDefRate(val) {
+  document.getElementById('def-rate').value=val;
+  document.getElementById('def-rate-slider').value=val;
   calculate();
 }
-
 function updateMult(stock) {
   const val = parseInt(document.getElementById(`mult-${stock}`).value);
   state[stock].mult = val;
   const el = document.getElementById(`multVal-${stock}`);
-  el.textContent = val + '×';
-  el.className = `mult-val ${stock}` + (val === 0 ? ' zero' : '');
-  // update slider gradient
-  const slider = document.getElementById(`mult-${stock}`);
-  const pct = (val / 20) * 100;
-  const c = stock === 's1' ? '#f59e0b' : '#10b981';
-  slider.style.background = `linear-gradient(to right, ${c} ${pct}%, #272c3f ${pct}%)`;
-  buildMiniChart(stock);
+  el.textContent = val+'×';
+  el.className = `ctrl-val ${stock}`+(val===0?' zero':'');
+  const c = stock==='s1'?'#d49000':'#6a9400';
+  const pct = (val/20)*100;
+  document.getElementById(`mult-${stock}`).style.background = `linear-gradient(to right,${c} ${pct}%,#ddc99a ${pct}%)`;
+  buildMiniChart(stock); calculate();
+}
+
+// ══ TABLE ══
+function initTable() {
+  const tbody = document.getElementById('schedule-body');
+  tbody.innerHTML = '';
+  const plan = years===5?defaultPlan5:defaultPlan10;
+  if (!userPlan || userPlan.length!==years) userPlan = plan.map(p=>({...p}));
+  for (let i=0; i<years; i++) {
+    const p = userPlan[i]||{defMonthly:5,s1Y:0,s2Y:0};
+    const locked = (i>=tbYears);
+    const s1v = locked?0:p.s1Y, s2v = locked?0:p.s2Y;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="year-tag">${i+1}年目${locked?'':' 🎯'}</span></td>
+      <td><input type="number" class="input-mini" id="def_${i}" value="${p.defMonthly}" step="0.5" min="0"></td>
+      <td><input type="number" class="input-mini" id="s1_${i}" value="${s1v}" step="5" min="0"${locked?' disabled':''}></td>
+      <td><input type="number" class="input-mini" id="s2_${i}" value="${s2v}" step="5" min="0"${locked?' disabled':''}></td>
+      <td class="total-cell" id="total_${i}">—</td>`;
+    tbody.appendChild(tr);
+    tr.querySelectorAll('input:not([disabled])').forEach(inp=>inp.addEventListener('input',()=>{
+      userPlan[i].defMonthly = parseFloat(document.getElementById(`def_${i}`).value)||0;
+      if (!locked) {
+        userPlan[i].s1Y = parseFloat(document.getElementById(`s1_${i}`).value)||0;
+        userPlan[i].s2Y = parseFloat(document.getElementById(`s2_${i}`).value)||0;
+      }
+      calculate();
+    }));
+  }
+}
+
+// ══ AUTO REBALANCE ══
+// ルール：
+// ・毎年の投資合計 = 合計投資金額 ÷ 年数（全年均等）
+// ・攻め総額 = 合計 × 20%　→ 仕込み年数で均等割り（株A:株B = 半々）
+// ・仕込み年の守り = 毎年額 − 攻め年額（その年の余り）
+// ・守り専念年の守り = 毎年額（全額）
+// ※ 仕込み年は守り月額が他年より少なくなるが、毎年の合計投資額は均等
+function autoRebalance() {
+  const budget = parseFloat(document.getElementById('total-budget').value) || 0;
+  if (budget <= 0 || years <= 0) return;
+
+  const perYear    = budget / years;         // 毎年の投資合計（万円）
+  const totalAtk   = budget * 0.20;         // 攻め総額（万円）
+  const atkPerYear = totalAtk / tbYears;    // 仕込み年1年あたりの攻め額
+  const s1PerYear  = Math.round(atkPerYear / 2 * 10) / 10;
+  const s2PerYear  = Math.round(atkPerYear / 2 * 10) / 10;
+  const defInStockYear = perYear - s1PerYear - s2PerYear; // 仕込み年の守り年額
+
+  // ── ガード：仕込み年の攻め額が毎年額を超える場合 ──
+  // 対策：攻め総額を「仕込み年の毎年額の上限（50%）」に収める形で仕込み年数を提案
+  if (defInStockYear < 0) {
+    // 毎年額の中で80:20が成立する最低仕込み年数を算出
+    // atkPerYear <= perYear * 0.5 (株Aと株Bで毎年額の50%まで) を満たす最小tbYears
+    // atkPerYear = totalAtk / n → n >= totalAtk / (perYear * 0.5) = (budget*0.2)/(budget/years*0.5) = years*0.4
+    const minTbYears = Math.ceil(years * 0.4);
+    const safeTbYears = Math.min(Math.max(minTbYears, tbYears + 1), years);
+
+    showRebalanceWarning(
+      `仕込み年数が少なすぎるため、1年あたりの個別株投資額（${atkPerYear.toFixed(1)}万円）が毎年の投資合計（${perYear.toFixed(1)}万円）を超えてしまいます。`,
+      `仕込み年数を <strong>${safeTbYears}年以上</strong> に増やすか、合計投資金額を増やしてください。`,
+      () => { setTbYears(safeTbYears); setTimeout(autoRebalance, 50); }
+    );
+    return;
+  }
+
+  // ── 正常ケース：書き込み ──
+  hideRebalanceWarning();
+
+  for (let i = 0; i < years; i++) {
+    const locked = (i >= tbYears);
+    const defAnnual  = locked ? perYear : defInStockYear;
+    const defMonthly = Math.round(defAnnual / 12 * 100) / 100;
+
+    const defEl = document.getElementById(`def_${i}`);
+    if (defEl) defEl.value = defMonthly;
+    userPlan[i].defMonthly = defMonthly;
+
+    if (!locked) {
+      const s1El = document.getElementById(`s1_${i}`);
+      const s2El = document.getElementById(`s2_${i}`);
+      if (s1El) s1El.value = s1PerYear;
+      if (s2El) s2El.value = s2PerYear;
+      userPlan[i].s1Y = s1PerYear;
+      userPlan[i].s2Y = s2PerYear;
+    }
+  }
   calculate();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Schedule Table
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function updateRatio(defTotal, s1Total, s2Total) {
-  const total = defTotal + s1Total + s2Total;
-  if (total <= 0) return;
-  const atkTotal = s1Total + s2Total;
-  const defPct = Math.round(defTotal / total * 100);
-  const atkPct = 100 - defPct;
+function showRebalanceWarning(msg, hint, fixFn) {
+  let el = document.getElementById('rebalance-warning');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'rebalance-warning';
+    el.className = 'rebalance-warning';
+    // insert after rebalance btn
+    const btn = document.querySelector('.rebalance-btn');
+    btn.parentNode.insertBefore(el, btn.nextSibling);
+  }
+  el.innerHTML = `
+    <div class="rw-icon">⚠️</div>
+    <div class="rw-body">
+      <div class="rw-msg">${msg}</div>
+      <div class="rw-hint">${hint}</div>
+      <button class="rw-fix-btn" onclick="(${fixFn.toString()})()">自動修正して再リバランス →</button>
+    </div>
+    <button class="rw-close" onclick="hideRebalanceWarning()">✕</button>
+  `;
+  el.style.display = 'flex';
+}
 
-  document.getElementById('seg-def').style.width = defPct + '%';
-  document.getElementById('seg-atk').style.width = atkPct + '%';
-  document.getElementById('seg-def-label').innerHTML = `守り<br>${defPct}%`;
-  document.getElementById('seg-atk-label').innerHTML = `攻め<br>${atkPct}%`;
-  document.getElementById('ratio-badge').textContent = `守り ${defPct}% ／ 攻め ${atkPct}%`;
-
-  // 80:20 チェック
-  const ruleEl = document.getElementById('ratio-rule');
-  if (defPct >= 75 && defPct <= 85) {
-    ruleEl.textContent = '✓ 80:20 バランス良好';
-    ruleEl.className = 'ratio-rule ok';
-  } else if (defPct > 85) {
-    ruleEl.textContent = `▲ 守りすぎ (守り${defPct}%)`;
-    ruleEl.className = 'ratio-rule ng';
+function hideRebalanceWarning() {
+  const el = document.getElementById('rebalance-warning');
+  if (el) el.style.display = 'none';
+}
+// ══ RATIO ══
+function updateRatio(defT, atkT) {
+  const tot=defT+atkT; if (tot<=0) return;
+  const dp=Math.round(defT/tot*100), ap=100-dp;
+  document.getElementById('seg-def').style.width=dp+'%';
+  document.getElementById('seg-atk').style.width=ap+'%';
+  document.getElementById('seg-def-label').textContent=`守り ${dp}%`;
+  document.getElementById('seg-atk-label').textContent=`攻め ${ap}%`;
+  document.getElementById('ratio-badge').textContent=`守り ${dp}% ／ 攻め ${ap}%`;
+  const rEl=document.getElementById('ratio-rule'), pb=document.getElementById('pareto-badge');
+  if (dp>=75&&dp<=85) {
+    rEl.textContent='✓ 80:20 良好'; rEl.className='ratio-rule ok';
+    pb.textContent='✓ パレート最適'; pb.className='ratio-rule ok';
+  } else if (dp>85) {
+    rEl.textContent=`▲ 守りすぎ ${dp}%`; rEl.className='ratio-rule ng';
+    pb.textContent=`▲ 守り過多 ${dp}%`; pb.className='ratio-rule ng';
   } else {
-    ruleEl.textContent = `▲ 攻めすぎ (攻め${atkPct}%)`;
-    ruleEl.className = 'ratio-rule ng';
+    rEl.textContent=`▲ 攻めすぎ ${ap}%`; rEl.className='ratio-rule ng';
+    pb.textContent=`▲ 攻め過多 ${ap}%`; pb.className='ratio-rule ng';
   }
 }
 
-function initTable() {
-  const tbody = document.getElementById('schedule-body');
-  defaultPlan.forEach((p, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="font-weight:700;font-family:'JetBrains Mono',monospace">${i+1}年目</td>
-      <td><input type="number" class="input-mini" id="def_${i}" value="${p.defMonthly}" step="0.5" min="0"></td>
-      <td><input type="number" class="input-mini" id="s1_${i}" value="${p.s1Y}" step="5" min="0"></td>
-      <td><input type="number" class="input-mini" id="s2_${i}" value="${p.s2Y}" step="5" min="0"></td>
-      <td class="total-cell" id="total_${i}">—</td>
-    `;
-    tbody.appendChild(tr);
-    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calculate));
-  });
-}
+// ══ CHARTS ══
+let barChart,lineChart,priceChart,scheduleChart;
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Main Calculation
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let barChart;
-
-function calculate() {
-  let curDef = 0;
-  let baseDef = 0, baseS1 = 0, baseS2 = 0;
-
-  const annualRate = (parseFloat(document.getElementById('def-rate').value) || 0) / 100;
-  const monthlyRate = annualRate / 12;
-
-  for (let y = 0; y < 5; y++) {
-    const dMonth = (parseFloat(document.getElementById(`def_${y}`).value) || 0) * 10000;
-    const s1Year = (parseFloat(document.getElementById(`s1_${y}`).value) || 0) * 10000;
-    const s2Year = (parseFloat(document.getElementById(`s2_${y}`).value) || 0) * 10000;
-    const total = (dMonth * 12 + s1Year + s2Year) / 10000;
-    document.getElementById(`total_${y}`).textContent = total.toFixed(1) + '万';
-
-    baseDef += dMonth * 12;
-    baseS1 += s1Year;
-    baseS2 += s2Year;
-
-    // 守りは月次複利積立
-    for (let m = 1; m <= 12; m++) {
-      curDef = (curDef + dMonth) * (1 + monthlyRate);
+function updateBarChart(bDef,fDef,bS1,fS1,bS2,fS2) {
+  const d={labels:['元本合計',`${years}年後評価額`],datasets:[
+    {label:'守り',data:[bDef,fDef],backgroundColor:'#a19679bb',borderRadius:4,borderSkipped:false},
+    {label:'個別株A',data:[bS1,fS1],backgroundColor:'#f5af02bb',borderRadius:4,borderSkipped:false},
+    {label:'個別株B',data:[bS2,fS2],backgroundColor:'#86b817bb',borderRadius:4,borderSkipped:false},
+  ]};
+  if (barChart) { barChart.data=d; barChart.update('active'); return; }
+  const ctx=document.getElementById('barChart').getContext('2d');
+  barChart=new Chart(ctx,{type:'bar',data:d,options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:400},
+    scales:{
+      x:{stacked:true,grid:{display:false},ticks:{color:'#6b5a3e',font:{size:9,weight:'600'}}},
+      y:{stacked:true,grid:{color:GC},ticks:{color:TC,font:{size:8},callback:v=>v+'万'},border:{display:false}}
+    },
+    plugins:{
+      legend:{labels:{color:'#6b5a3e',font:{size:9},boxWidth:9,boxHeight:9}},
+      tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}万円`}}
     }
+  },plugins:[{id:'topLabel',afterDatasetsDraw(ch){
+    const{ctx:c,scales:{x,y}}=ch;
+    ch.data.labels.forEach((_,i)=>{
+      let t=0; ch.data.datasets.forEach(ds=>t+=(ds.data[i]||0));
+      c.save();c.textAlign='center';c.textBaseline='bottom';
+      c.font='bold 10px "Noto Sans JP",sans-serif';c.fillStyle='#2a1f0e';
+      c.fillText(t+'万',x.getPixelForValue(i),y.getPixelForValue(t)-4);c.restore();
+    });
+  }}]});
+}
+
+function updateLineChart(defData) {
+  const labels=Array.from({length:years+1},(_,i)=>i===0?'開始':`${i}年`);
+  const d={labels,datasets:[{label:'守り（累積）',data:defData,borderColor:'#a19679',backgroundColor:'rgba(161,150,121,0.10)',fill:true,tension:0.4,pointRadius:3,pointBackgroundColor:'#a19679'}]};
+  if (lineChart) { lineChart.data=d; lineChart.update('active'); return; }
+  const ctx=document.getElementById('lineChart').getContext('2d');
+  lineChart=new Chart(ctx,{type:'line',data:d,options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:400},
+    scales:{
+      x:{grid:{color:GC},ticks:{color:TC,font:{size:8}}},
+      y:{grid:{color:GC},ticks:{color:TC,font:{size:8},callback:v=>v+'万'},border:{display:false}}
+    },
+    plugins:{legend:{labels:{color:'#6b5a3e',font:{size:9},boxWidth:9}},tooltip:{callbacks:{label:c=>` 守り累積: ${c.raw}万円`}}}
+  }});
+}
+
+function updateScheduleChart(yrLabels,defD,s1D,s2D) {
+  const d={labels:yrLabels,datasets:[
+    {label:'守り（年額）',data:defD,backgroundColor:'#a19679bb',borderRadius:3,borderSkipped:false},
+    {label:'個別株A',data:s1D,backgroundColor:'#f5af02bb',borderRadius:3,borderSkipped:false},
+    {label:'個別株B',data:s2D,backgroundColor:'#86b817bb',borderRadius:3,borderSkipped:false},
+  ]};
+  if (scheduleChart) { scheduleChart.data=d; scheduleChart.update('active'); return; }
+  const ctx=document.getElementById('scheduleChart').getContext('2d');
+  scheduleChart=new Chart(ctx,{type:'bar',data:d,options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:400},
+    scales:{
+      x:{stacked:true,grid:{display:false},ticks:{color:TC,font:{size:8}}},
+      y:{stacked:true,grid:{color:GC},ticks:{color:TC,font:{size:8},callback:v=>v+'万'},border:{display:false}}
+    },
+    plugins:{legend:{labels:{color:'#6b5a3e',font:{size:9},boxWidth:9,boxHeight:9}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}万円`}}}
+  }});
+}
+
+function updatePriceChart() {
+  const TM=years*12,step=3;
+  const labels=[],s1d=[],s2d=[];
+  for (let t=0;t<=TM;t+=step) {
+    labels.push(t===0?'開始':t%12===0?`${t/12}年`:'');
+    s1d.push(+getPriceIndex(state.s1.pattern,state.s1.mult,t,TM).toFixed(3));
+    s2d.push(+getPriceIndex(state.s2.pattern,state.s2.mult,t,TM).toFixed(3));
+  }
+  const d={labels,datasets:[
+    {label:'個別株A',data:s1d,borderColor:'#d49000',backgroundColor:'rgba(213,144,0,0.08)',fill:true,tension:0.4,pointRadius:0,borderWidth:2},
+    {label:'個別株B',data:s2d,borderColor:'#6a9400',backgroundColor:'rgba(106,148,0,0.08)',fill:true,tension:0.4,pointRadius:0,borderWidth:2},
+  ]};
+  if (priceChart) { priceChart.data=d; priceChart.update('active'); return; }
+  const ctx=document.getElementById('priceChart').getContext('2d');
+  priceChart=new Chart(ctx,{type:'line',data:d,options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:300},
+    scales:{
+      x:{grid:{color:GC},ticks:{color:TC,font:{size:8},maxTicksLimit:years+2}},
+      y:{grid:{color:GC},ticks:{color:TC,font:{size:8},callback:v=>v.toFixed(1)+'×'},border:{display:false}}
+    },
+    plugins:{legend:{labels:{color:'#6b5a3e',font:{size:9},boxWidth:9}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}×`}}}
+  }});
+}
+
+// ══ CALCULATE ══
+function calculate() {
+  // Update plan hint
+  const budget = parseFloat(document.getElementById('total-budget')?.value) || 0;
+  const perYear = budget > 0 ? Math.round(budget / years * 10) / 10 : 0;
+  const hintEl = document.getElementById('plan-hint');
+  if (hintEl) hintEl.textContent = `毎年 ${perYear}万円 × ${years}年 = 合計 ${budget}万円`;
+  const annualRate=(parseFloat(document.getElementById('def-rate').value)||0)/100;
+  const mRate=annualRate/12;
+  let curDef=0,baseDef=0,baseS1=0,baseS2=0;
+  const defAccum=[0];
+  const yrLabels=[],defAnn=[],s1Ann=[],s2Ann=[];
+
+  for (let y=0;y<years;y++) {
+    const dM=(parseFloat(document.getElementById(`def_${y}`)?.value)||0)*10000;
+    const s1Y=(parseFloat(document.getElementById(`s1_${y}`)?.value)||0)*10000;
+    const s2Y=(parseFloat(document.getElementById(`s2_${y}`)?.value)||0)*10000;
+    const tot=(dM*12+s1Y+s2Y)/10000;
+    const tc=document.getElementById(`total_${y}`);
+    if (tc) tc.textContent=tot.toFixed(1)+'万';
+    baseDef+=dM*12; baseS1+=s1Y; baseS2+=s2Y;
+    for (let m=1;m<=12;m++) curDef=(curDef+dM)*(1+mRate);
+    defAccum.push(Math.round(curDef/10000));
+    yrLabels.push(`${y+1}年目`);
+    defAnn.push(Math.round(dM*12/10000));
+    s1Ann.push(Math.round(s1Y/10000));
+    s2Ann.push(Math.round(s2Y/10000));
   }
 
-  // 個別株はシンプルに「元本合計 × 5年後倍率」
-  const m1 = state.s1.pattern === 'delist' ? 0 : state.s1.mult;
-  const m2 = state.s2.pattern === 'delist' ? 0 : state.s2.mult;
+  const m1=state.s1.pattern==='delist'?0:state.s1.mult;
+  const m2=state.s2.pattern==='delist'?0:state.s2.mult;
+  const fDef=Math.round(curDef/10000);
+  const fS1=Math.round(baseS1/10000*m1);
+  const fS2=Math.round(baseS2/10000*m2);
+  const bDM=Math.round(baseDef/10000),bS1M=Math.round(baseS1/10000),bS2M=Math.round(baseS2/10000);
+  const tBase=bDM+bS1M+bS2M,tFinal=fDef+fS1+fS2;
+  const tGain=tFinal-tBase,tRate=tBase>0?((tFinal/tBase-1)*100).toFixed(1):'0.0';
 
-  const fDef = Math.round(curDef / 10000);
-  const fS1  = Math.round(baseS1 / 10000 * m1);
-  const fS2  = Math.round(baseS2 / 10000 * m2);
+  document.getElementById('kpi-total').textContent=tFinal+'万円';
+  const tgEl=document.getElementById('kpi-total-g');
+  tgEl.textContent=`元本${tBase}万 ${tGain>=0?'+':''}${tGain}万 (${tRate}%)`;
+  tgEl.className='kpi-gain '+(tGain>=0?'pos':'neg');
 
-  const bDefM = Math.round(baseDef / 10000);
-  const bS1M  = Math.round(baseS1 / 10000);
-  const bS2M  = Math.round(baseS2 / 10000);
-  const totalBase = bDefM + bS1M + bS2M;
-  const totalFinal = fDef + fS1 + fS2;
+  document.getElementById('kpi-def').textContent=fDef+'万円';
+  document.getElementById('kpi-def-g').textContent=`元本${bDM}万 → +${fDef-bDM}万`;
+  document.getElementById('kpi-def-g').className='kpi-gain pos';
 
-  // Result chips
-  document.getElementById('r-def').textContent = fDef + ' 万円';
-  document.getElementById('r-def-g').textContent = `元本 ${bDefM}万 → +${fDef - bDefM}万`;
-  document.getElementById('r-s1').textContent = fS1 + ' 万円';
-  const s1gain = fS1 - bS1M;
-  document.getElementById('r-s1-g').textContent = `元本 ${bS1M}万 → ${s1gain >= 0 ? '+' : ''}${s1gain}万`;
-  document.getElementById('r-s2').textContent = fS2 + ' 万円';
-  const s2gain = fS2 - bS2M;
-  document.getElementById('r-s2-g').textContent = `元本 ${bS2M}万 → ${s2gain >= 0 ? '+' : ''}${s2gain}万`;
+  document.getElementById('kpi-s1').textContent=fS1+'万円';
+  const s1g=fS1-bS1M;
+  document.getElementById('kpi-s1-g').textContent=`元本${bS1M}万 → ${s1g>=0?'+':''}${s1g}万`;
+  document.getElementById('kpi-s1-g').className='kpi-gain '+(s1g>=0?'pos':'neg');
 
-  // Compact summary
-  const totalGain = totalFinal - totalBase;
-  const totalRate = totalBase > 0 ? ((totalFinal / totalBase - 1) * 100).toFixed(1) : 0;
-  document.getElementById('total-result').textContent = totalFinal + ' 万円';
-  document.getElementById('total-invested').textContent = `元本 ${totalBase} 万円`;
-  const gainEl = document.getElementById('total-gain');
-  gainEl.textContent = `${totalGain >= 0 ? '+' : ''}${totalGain}万円 (${totalRate}%)`;
-  gainEl.className = 'cs-gain ' + (totalGain >= 0 ? 'pos' : 'neg');
+  document.getElementById('kpi-s2').textContent=fS2+'万円';
+  const s2g=fS2-bS2M;
+  document.getElementById('kpi-s2-g').textContent=`元本${bS2M}万 → ${s2g>=0?'+':''}${s2g}万`;
+  document.getElementById('kpi-s2-g').className='kpi-gain '+(s2g>=0?'pos':'neg');
 
-  updateBarChart(bDefM, fDef, bS1M, fS1, bS2M, fS2);
-  updateRatio(bDefM, bS1M, bS2M);
+  updateRatio(bDM,bS1M+bS2M);
+  updateBarChart(bDM,fDef,bS1M,fS1,bS2M,fS2);
+  updateLineChart(defAccum);
+  updateScheduleChart(yrLabels,defAnn,s1Ann,s2Ann);
+  updatePriceChart();
 }
 
-function updateBarChart(bDef, fDef, bS1, fS1, bS2, fS2) {
-  if (barChart) barChart.destroy();
-  const ctx = document.getElementById('barChart').getContext('2d');
-  barChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['元本合計', '5年後評価額'],
-      datasets: [
-        { label: '守り', data: [bDef, fDef], backgroundColor: '#6366f1cc', borderRadius: 4 },
-        { label: '個別株A', data: [bS1, fS1], backgroundColor: '#f59e0bcc', borderRadius: 4 },
-        { label: '個別株B', data: [bS2, fS2], backgroundColor: '#10b981cc', borderRadius: 4 },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { color: '#4b5563', font: { size: 12, weight: '700' } } },
-        y: { stacked: true, grid: { color: '#e8eaf2' }, ticks: { color: '#4b5563', font: { size: 10 }, callback: v => v + '万' }, border: { display: false } }
-      },
-      plugins: {
-        legend: {
-          labels: { color: '#374151', font: { size: 11 }, boxWidth: 12, boxHeight: 12 }
-        },
-        datalabels: {
-          color: '#fff', font: { weight: 'bold', size: 11 },
-          formatter: v => v > 0 ? v + '万' : '',
-          display: ctx2 => ctx2.dataset.data[ctx2.dataIndex] > 5,
-          textShadowBlur: 3,
-          textShadowColor: 'rgba(0,0,0,0.3)'
-        }
-      }
-    },
-    plugins: [{
-      id: 'topLabel',
-      afterDatasetsDraw(chart) {
-        const { ctx: c, scales: { x, y } } = chart;
-        chart.data.labels.forEach((_, i) => {
-          let total = 0;
-          chart.data.datasets.forEach(ds => total += (ds.data[i] || 0));
-          c.save();
-          c.textAlign = 'center'; c.textBaseline = 'bottom';
-          c.font = 'bold 13px "JetBrains Mono", monospace'; c.fillStyle = '#1a1d2e';
-          c.fillText('計 ' + total + '万', x.getPixelForValue(i), y.getPixelForValue(total) - 8);
-          c.restore();
-        });
-      }
-    }]
-  });
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Init
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ══ INIT ══
+buildTbBtns();
 initTable();
-document.getElementById('def-rate').addEventListener('input', calculate);
+document.getElementById('total-budget').addEventListener('input', calculate);
+document.getElementById('def-rate').addEventListener('input',e=>syncDefRate(e.target.value));
+document.getElementById('def-rate-slider').addEventListener('input',e=>syncDefRate(e.target.value));
 buildMiniChart('s1');
 buildMiniChart('s2');
 updateMult('s1');
